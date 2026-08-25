@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PricingMode {
+  SIMPLE
+  ADVANCED
+}
+
+model User {
+  id         String     @id @default(cuid())
+  email      String     @unique
+  name       String?
+  image      String?
+  categories Category[]
+  projects   Project[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean   @default(true)
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([ownerId, name])
+  @@index([ownerId, isActive])
+}
+
+model Project {
+  id                       String      @id @default(cuid())
+  ownerId                  String
+  owner                    User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  categoryId               String?
+  category                 Category?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  mode                     PricingMode
+  projectDate              DateTime    @db.Date
+  productName              String
+  detail                   String      @default("")
+  currencyCode             String      @default("CNY")
+  unitForeignPrice         Decimal     @db.Decimal(18, 4)
+  exchangeRate             Decimal     @db.Decimal(18, 6)
+  quantity                 Decimal     @db.Decimal(18, 4)
+  overseasShippingPct      Decimal     @default(0) @db.Decimal(9, 4)
+  domesticPackingPct       Decimal     @default(0) @db.Decimal(9, 4)
+  internationalFreight     Decimal     @default(0) @db.Decimal(18, 2)
+  insurance                Decimal     @default(0) @db.Decimal(18, 2)
+  dutyRatePct              Decimal     @default(0) @db.Decimal(9, 4)
+  otherTaxFees             Decimal     @default(0) @db.Decimal(18, 2)
+  brokerFee                Decimal     @default(0) @db.Decimal(18, 2)
+  domesticLogistics        Decimal     @default(0) @db.Decimal(18, 2)
+  otherExpenses            Decimal     @default(0) @db.Decimal(18, 2)
+  vatRatePct               Decimal     @default(7) @db.Decimal(9, 4)
+  includeVatInCost         Boolean     @default(true)
+  gpMarginPct              Decimal     @default(0) @db.Decimal(9, 4)
+  goodsValue               Decimal     @db.Decimal(18, 2)
+  cifValue                 Decimal     @db.Decimal(18, 2)
+  importDuty               Decimal     @db.Decimal(18, 2)
+  importVat                Decimal     @db.Decimal(18, 2)
+  totalCost                Decimal     @db.Decimal(18, 2)
+  costPerUnit              Decimal     @db.Decimal(18, 4)
+  sellingPricePerUnit      Decimal     @db.Decimal(18, 4)
+  profitPerUnit            Decimal     @db.Decimal(18, 4)
+  totalProfit              Decimal     @db.Decimal(18, 2)
+  formulaVersion           Int         @default(1)
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  @@index([ownerId, updatedAt])
+  @@index([ownerId, categoryId])
+  @@index([ownerId, mode])
+}

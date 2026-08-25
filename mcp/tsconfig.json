@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "rootDir": "..",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "server.ts",
+    "../lib/auth/allowlist.ts",
+    "../lib/auth/owner-id.ts",
+    "../lib/auth/types.ts",
+    "../lib/auth/user-record.ts",
+    "../lib/config/**/*.ts",
+    "../lib/db/**/*.ts",
+    "../lib/domain/**/*.ts",
+    "../lib/firebase/**/*.ts",
+    "../lib/http/**/*.ts",
+    "../lib/repositories/**/*.ts"
+  ],
+  "exclude": [
+    "../node_modules",
+    "../.next",
+    "../app",
+    "../components",
+    "dist",
+    "../lib/**/*.test.ts",
+    "../lib/firebase/client.ts",
+    "../lib/firebase/web-config.ts"
+  ]
+}

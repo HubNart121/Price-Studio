@@ -1,0 +1,44 @@
+{
+  "name": "import-price-studio",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "firebase:emulators": "firebase emulators:start --only auth,firestore",
+    "firebase:deploy:rules": "firebase deploy --only firestore",
+    "mcp:build": "tsc -p mcp/tsconfig.json",
+    "mcp:smoke": "node --env-file=.env scripts/mcp-smoke.mjs",
+    "mcp:start": "node --env-file=.env mcp/dist/mcp/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@prisma/client": "6.19.3",
+    "firebase": "^12.17.1",
+    "firebase-admin": "^14.2.0",
+    "next": "16.2.12",
+    "next-auth": "5.0.0-beta.32",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.30",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "firebase-tools": "^15.26.0",
+    "prisma": "6.19.3",
+    "typescript": "5.8.3",
+    "vitest": "3.2.7"
+  },
+  "overrides": {
+    "postcss": "8.5.25",
+    "sharp": "0.35.3"
+  }
+}

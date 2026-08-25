@@ -1,0 +1,91 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pricing
+      POSTGRES_USER: pricing
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pricing_password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pricing -d pricing"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "127.0.0.1:${DB_PORT:-55432}:5432"
+    volumes:
+      - pricing_postgres_data:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_PORT:-3015}:3000"
+    environment:
+      DATA_BACKEND: postgres
+      AUTH_MODE: nextauth
+      DATABASE_URL: postgresql://pricing:${POSTGRES_PASSWORD:-pricing_password}@db:5432/pricing?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:-change-this-before-sharing-the-app}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-not-configured}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-not-configured}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-nart@example.com}
+      DEV_AUTH_EMAIL: ${DEV_AUTH_EMAIL:-nart@example.com}
+      # Docker รุ่นใช้งานในเครื่อง: เข้าใช้งานได้ทันทีโดยไม่ผ่านหน้า Login
+      # พอร์ตด้านบน bind กับ 127.0.0.1 เพื่อไม่เปิดให้เครื่องอื่นในเครือข่าย
+      LOCAL_AUTH_BYPASS: "true"
+      AUTH_URL: ${AUTH_URL:-http://localhost:3015}
+      AUTH_TRUST_HOST: "true"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${MCP_PORT:-3025}:3025"
+    environment:
+      DATA_BACKEND: ${DATA_BACKEND:-postgres}
+      DATABASE_URL: postgresql://pricing:${POSTGRES_PASSWORD:-pricing_password}@db:5432/pricing?schema=public
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-nart@example.com}
+      DEV_AUTH_EMAIL: ${DEV_AUTH_EMAIL:-nart@example.com}
+      MCP_OWNER_EMAIL: ${MCP_OWNER_EMAIL:-nart@example.com}
+      MCP_OWNER_NAME: ${MCP_OWNER_NAME:-Nart}
+      MCP_SHARED_SECRET: ${MCP_SHARED_SECRET:-local-mcp-secret-change-me}
+      PRODUCT_PRICE_PUBLIC_URL: ${PRODUCT_PRICE_PUBLIC_URL:-http://localhost:3016}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3025/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  pricing_postgres_data:

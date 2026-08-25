@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // แอปนี้อ่านและเขียน Firestore ผ่าน Next.js API + Admin SDK เท่านั้น
+    // Admin SDK ตรวจ session, allowlist และ ownerId ในฝั่งเซิร์ฟเวอร์ก่อนทุกครั้ง
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

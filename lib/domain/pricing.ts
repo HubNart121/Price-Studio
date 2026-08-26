@@ -1,6 +1,6 @@
 export const FORMULA_VERSION = 1;
 
-export type PricingMode = "SIMPLE" | "ADVANCED";
+export type PricingMode = "SIMPLE" | "ADVANCED" | "VOLUME";
 
 export interface PricingInput {
   mode: PricingMode;
@@ -108,7 +108,7 @@ export function calculatePricing(input: PricingInput): PricingResult {
       (input.domesticPackingPct / 100);
     cifValue = goodsValue + internationalFreightCost;
     totalCost = goodsValue + internationalFreightCost + domesticPackingCost;
-  } else {
+  } else if (input.mode === "ADVANCED") {
     internationalFreightCost = input.internationalFreight;
     cifValue = goodsValue + internationalFreightCost + input.insurance;
     importDuty = cifValue * (input.dutyRatePct / 100);
@@ -123,6 +123,15 @@ export function calculatePricing(input: PricingInput): PricingResult {
       input.domesticLogistics +
       input.otherExpenses +
       (input.includeVatInCost ? importVat : 0);
+  } else {
+    internationalFreightCost = input.overseasShippingPct > 0
+      ? goodsValue * (input.overseasShippingPct / 100)
+      : 0;
+    domesticPackingCost =
+      (goodsValue + internationalFreightCost) *
+      (input.domesticPackingPct / 100);
+    cifValue = goodsValue + internationalFreightCost;
+    totalCost = goodsValue + internationalFreightCost + domesticPackingCost;
   }
 
   const costPerUnit = totalCost / input.quantity;

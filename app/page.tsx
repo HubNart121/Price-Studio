@@ -7,13 +7,21 @@ import FirebaseLoginButton from "@/components/firebase-login-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: { projectId?: string | string[] };
+}) {
   const user = await getCurrentUser();
   const authMode = getAuthMode();
   const firebaseConfig =
     authMode === "firebase" ? getFirebaseWebConfig() : null;
   const googleAuthConfigured =
     authMode === "firebase" ? Boolean(firebaseConfig) : isGoogleAuthConfigured();
+  const initialProjectId = Array.isArray(searchParams?.projectId)
+    ? searchParams.projectId[0] ?? null
+    : searchParams?.projectId ?? null;
+  const returnTo = initialProjectId ? `/?projectId=${encodeURIComponent(initialProjectId)}` : "/";
 
   if (!user) {
     return (
@@ -29,9 +37,10 @@ export default async function HomePage() {
             พร้อมบันทึกโปรเจกต์ไว้ใช้งานต่อได้อย่างปลอดภัย
           </p>
           {authMode === "firebase" && firebaseConfig ? (
-            <FirebaseLoginButton config={firebaseConfig} />
+            <FirebaseLoginButton config={firebaseConfig} returnTo={returnTo} />
           ) : googleAuthConfigured ? (
             <form action={loginWithGoogle}>
+              <input name="returnTo" type="hidden" value={returnTo} />
               <button className="button primary login-button" type="submit">
                 <span aria-hidden="true">G</span>
                 เข้าสู่ระบบด้วย Google
@@ -52,5 +61,5 @@ export default async function HomePage() {
     );
   }
 
-  return <Dashboard user={user} />;
+  return <Dashboard user={user} initialProjectId={initialProjectId} />;
 }

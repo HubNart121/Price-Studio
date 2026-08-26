@@ -13,8 +13,10 @@ import type { FirebaseWebConfig } from "@/lib/firebase/web-config";
 
 export default function FirebaseLoginButton({
   config,
+  returnTo,
 }: {
   config: FirebaseWebConfig;
+  returnTo: string;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -39,7 +41,7 @@ export default function FirebaseLoginButton({
       }
 
       await signOut(firebaseAuth);
-      window.location.assign("/");
+      window.location.assign(returnTo || "/");
     } catch (loginError) {
       await signOut(firebaseAuth).catch(() => undefined);
       setError(

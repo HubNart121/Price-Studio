@@ -11,7 +11,7 @@ export const projectInputSchema = z
     productName: z.string().trim().min(1, "กรุณาระบุชื่อสินค้า").max(200),
     detail: z.string().trim().max(2000).optional().default(""),
     currencyCode: z.string().trim().min(3).max(3).default("CNY"),
-    mode: z.enum(["SIMPLE", "ADVANCED"]),
+    mode: z.enum(["SIMPLE", "ADVANCED", "VOLUME"]),
     unitForeignPrice: nonNegative,
     exchangeRate: z.coerce.number().finite().positive(),
     quantity: z.coerce.number().finite().positive(),

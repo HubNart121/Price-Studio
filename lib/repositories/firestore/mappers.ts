@@ -36,7 +36,12 @@ export function mapCategory(
 
 function pricingResult(data: DocumentData): PricingResult {
   const computed = calculatePricing({
-    mode: data.mode === "ADVANCED" ? "ADVANCED" : "SIMPLE",
+    mode:
+      data.mode === "ADVANCED"
+        ? "ADVANCED"
+        : data.mode === "VOLUME"
+          ? "VOLUME"
+          : "SIMPLE",
     unitForeignPrice: numberValue(data.unitForeignPrice),
     exchangeRate: numberValue(data.exchangeRate, 1),
     quantity: numberValue(data.quantity, 1),
@@ -104,7 +109,12 @@ export function mapProject(
     productName: stringValue(data.productName),
     detail: stringValue(data.detail),
     currencyCode: stringValue(data.currencyCode, "CNY"),
-    mode: data.mode === "ADVANCED" ? "ADVANCED" : "SIMPLE",
+    mode:
+      data.mode === "ADVANCED"
+        ? "ADVANCED"
+        : data.mode === "VOLUME"
+          ? "VOLUME"
+          : "SIMPLE",
     unitForeignPrice: numberValue(data.unitForeignPrice),
     exchangeRate: numberValue(data.exchangeRate, 1),
     quantity: numberValue(data.quantity, 1),

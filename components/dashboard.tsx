@@ -9,6 +9,7 @@ import {
   type ChangeEvent,
   type ReactNode,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { logout } from "@/app/actions";
 import type {
   CategoryRecord,
@@ -22,6 +23,11 @@ import {
 } from "@/lib/domain/pricing";
 
 type Tab = "calculator" | "projects" | "categories";
+type VolumeTier = {
+  qty: string;
+  quantity: number;
+  discount: number;
+};
 
 interface DashboardProps {
   user: {
@@ -30,6 +36,7 @@ interface DashboardProps {
     name: string | null;
     image: string | null;
   };
+  initialProjectId?: string | null;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -58,6 +65,14 @@ const imageCurrency = new Intl.NumberFormat("th-TH", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
+
+const defaultVolumeTiers: VolumeTier[] = [
+  { qty: "1-10", quantity: 10, discount: 0 },
+  { qty: "11-50", quantity: 50, discount: 5 },
+  { qty: "51-200", quantity: 200, discount: 10 },
+  { qty: "201-500", quantity: 500, discount: 15 },
+  { qty: "501+", quantity: 501, discount: 20 },
+];
 
 function escapeXml(value: string) {
   return value
@@ -123,6 +138,16 @@ function wrapSvgText(value: string, maxChars: number, maxLines = 2) {
   }
 
   return lines;
+}
+
+function formatPercent(value: number) {
+  return `${number.format(value)}%`;
+}
+
+function modeLabel(mode: ProjectInput["mode"]) {
+  if (mode === "SIMPLE") return "โหมดง่าย";
+  if (mode === "ADVANCED") return "โหมดละเอียด";
+  return "โหมด Volume";
 }
 
 async function jsonRequest<T>(
@@ -237,7 +262,10 @@ function Toast({
   );
 }
 
-export default function Dashboard({ user }: DashboardProps) {
+export default function Dashboard({ user, initialProjectId }: DashboardProps) {
+  const searchParams = useSearchParams();
+  const urlProjectId = searchParams.get("projectId");
+  const activeSharedProjectId = urlProjectId || initialProjectId || null;
   const [tab, setTab] = useState<Tab>("calculator");
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
@@ -258,6 +286,9 @@ export default function Dashboard({ user }: DashboardProps) {
   );
   const [restoreMode, setRestoreMode] = useState<"merge" | "replace">("replace");
   const restoreInput = useRef<HTMLInputElement>(null);
+  const [volumeTiers, setVolumeTiers] =
+    useState<VolumeTier[]>(defaultVolumeTiers);
+  const appliedSharedProjectId = useRef<string | null>(null);
 
   const showToast = useCallback(
     (message: string, kind: "success" | "error" = "success") => {
@@ -321,8 +352,55 @@ export default function Dashboard({ user }: DashboardProps) {
     });
   }, [filterCategory, filterMode, projects, search]);
 
+  const volumeRows = useMemo(() => {
+    const basePrice = result?.sellingPricePerUnit ?? 0;
+    const costPerUnit = result?.costPerUnit ?? 0;
+    return volumeTiers.map((tier) => {
+      const price = basePrice * (1 - tier.discount / 100);
+      const profit = price - costPerUnit;
+      const margin = price > 0 ? (profit / price) * 100 : 0;
+      const totalMargin = tier.quantity > 0 ? profit * tier.quantity : null;
+      return {
+        ...tier,
+        price,
+        profit,
+        margin,
+        totalMargin,
+      };
+    });
+  }, [result?.costPerUnit, result?.sellingPricePerUnit, volumeTiers]);
+
   const setNumber = (key: keyof ProjectInput, value: number) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const setVolumeTier = (
+    index: number,
+    field: keyof VolumeTier,
+    value: string | number,
+  ) => {
+    setVolumeTiers((current) =>
+      current.map((tier, tierIndex) =>
+        tierIndex === index
+          ? { ...tier, [field]: value } as VolumeTier
+          : tier,
+      ),
+    );
+  };
+
+  const addVolumeTier = () => {
+    setVolumeTiers((current) => [
+      ...current,
+      { qty: "ใหม่", quantity: 0, discount: 0 },
+    ]);
+  };
+
+  const removeVolumeTier = (index: number) => {
+    setVolumeTiers((current) =>
+      current.length > 1
+        ? current.filter((_, tierIndex) => tierIndex !== index)
+        : current,
+    );
   };
 
   const resetForm = () => {
@@ -368,7 +446,7 @@ export default function Dashboard({ user }: DashboardProps) {
     }
   };
 
-  const editProject = (project: ProjectRecord) => {
+  const openProject = (project: ProjectRecord) => {
     const {
       id,
       category: _category,
@@ -396,6 +474,45 @@ export default function Dashboard({ user }: DashboardProps) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  useEffect(() => {
+    if (loading || !activeSharedProjectId) return;
+    if (appliedSharedProjectId.current === activeSharedProjectId) return;
+
+    const sharedProject = projects.find(
+      (project) => project.id === activeSharedProjectId,
+    );
+    if (!sharedProject) {
+      appliedSharedProjectId.current = activeSharedProjectId;
+      showToast("ไม่พบโปรเจกต์จากลิงก์ที่แชร์", "error");
+      return;
+    }
+
+    openProject(sharedProject);
+    appliedSharedProjectId.current = activeSharedProjectId;
+  }, [activeSharedProjectId, loading, openProject, projects, showToast]);
+
+  const buildShareLink = (projectId: string) => {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.searchParams.set("projectId", projectId);
+    return url.toString();
+  };
+
+  const shareProject = async (projectId: string) => {
+    const shareUrl = buildShareLink(projectId);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast("คัดลอกลิงก์แชร์แล้ว");
+    } catch {
+      window.prompt("คัดลอกลิงก์นี้", shareUrl);
+      showToast("คัดลอกลิงก์ไม่สำเร็จ", "error");
+    }
+  };
+
+  const editProject = (project: ProjectRecord) => {
+    openProject(project);
+  };
+
   const duplicateProject = async (id: string) => {
     try {
       const duplicated = await jsonRequest<ProjectRecord>(
@@ -421,7 +538,7 @@ export default function Dashboard({ user }: DashboardProps) {
     const title = form.productName.trim() || "สรุปราคาสินค้านำเข้า";
     const subtitle = [
       selectedCategory || "ไม่ระบุหมวด",
-      form.mode === "SIMPLE" ? "โหมดง่าย" : "โหมดละเอียด",
+      modeLabel(form.mode),
       form.projectDate,
     ]
       .filter(Boolean)
@@ -499,10 +616,10 @@ export default function Dashboard({ user }: DashboardProps) {
         value: `${imageCurrency.format(form.gpMarginPct)}%`,
       },
       ...costs,
-      ...(form.mode === "ADVANCED"
+    ...(form.mode === "ADVANCED"
         ? advanced
         : []),
-    ];
+  ];
 
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
@@ -822,26 +939,45 @@ export default function Dashboard({ user }: DashboardProps) {
             </button>
           </section>
 
-          <section className="mode-switch no-print" aria-label="โหมดคำนวณ">
-            <button
-              className={form.mode === "SIMPLE" ? "active" : ""}
-              onClick={() =>
-                setForm((current) => ({ ...current, mode: "SIMPLE" }))
-              }
-            >
-              <strong>โหมดง่าย</strong>
-              <span>คำนวณด้วยเปอร์เซ็นต์</span>
-            </button>
-            <button
-              className={form.mode === "ADVANCED" ? "active" : ""}
-              onClick={() =>
-                setForm((current) => ({ ...current, mode: "ADVANCED" }))
-              }
-            >
-              <strong>โหมดละเอียด</strong>
-              <span>อากร VAT และค่าใช้จ่ายจริง</span>
-            </button>
-          </section>
+          <div className="workspace-top-row no-print">
+            <section className="mode-switch" aria-label="โหมดคำนวณ">
+              <button
+                className={form.mode === "SIMPLE" ? "active" : ""}
+                onClick={() =>
+                  setForm((current) => ({ ...current, mode: "SIMPLE" }))
+                }
+              >
+                <strong>โหมดง่าย</strong>
+                <span>คำนวณด้วยเปอร์เซ็นต์</span>
+              </button>
+              <button
+                className={form.mode === "ADVANCED" ? "active" : ""}
+                onClick={() =>
+                  setForm((current) => ({ ...current, mode: "ADVANCED" }))
+                }
+              >
+                <strong>โหมดละเอียด</strong>
+                <span>อากร VAT และค่าใช้จ่ายจริง</span>
+              </button>
+            </section>
+
+            <section className="share-strip" aria-label="แชร์โปรเจกต์">
+              <div>
+                <p className="eyebrow">SHARE LINK</p>
+                <h3>แชร์ลิงก์โปรเจกต์นี้</h3>
+                <p>กดเพื่อคัดลอกลิงก์เปิดดูโปรเจกต์นี้โดยตรง</p>
+              </div>
+              <button
+                className="button ghost share-button"
+                disabled={!editingId}
+                onClick={() => {
+                  if (editingId) void shareProject(editingId);
+                }}
+              >
+                แชร์ลิงก์
+              </button>
+            </section>
+          </div>
 
           <div className="editor-layout no-print">
             <div className="form-column">
@@ -960,7 +1096,7 @@ export default function Dashboard({ user }: DashboardProps) {
                 </div>
               </section>
 
-              {form.mode === "SIMPLE" ? (
+                  {form.mode === "SIMPLE" ? (
                 <section className="panel">
                   <SectionTitle
                     index="03"
@@ -1084,6 +1220,119 @@ export default function Dashboard({ user }: DashboardProps) {
                   <span style={{ width: `${Math.min(form.gpMarginPct, 99)}%` }} />
                 </div>
               </section>
+
+              {form.mode === "SIMPLE" ||
+              form.mode === "ADVANCED" ||
+              form.mode === "VOLUME" ? (
+                <section className="volume-panel">
+                  <div className="volume-panel-head">
+                    <div>
+                      <p className="eyebrow">Volume Pricing</p>
+                      <h3>ราคาขั้นบันไดตามปริมาณ</h3>
+                      <p>อิงจากราคาขายแนะนำ แล้วลดตามระดับปริมาณ</p>
+                    </div>
+                    <button
+                      className="button ghost volume-add"
+                      onClick={addVolumeTier}
+                      type="button"
+                    >
+                      ＋ เพิ่มระดับจำนวน
+                    </button>
+                  </div>
+                  <div className="volume-table-wrap">
+                    <table className="volume-table">
+                      <thead>
+                        <tr>
+                          <th>ช่วงจำนวน (ชิ้น)</th>
+                          <th className="right">จำนวน</th>
+                          <th>ลด (%)</th>
+                          <th className="right">ราคาต่อหน่วย</th>
+                          <th className="right">กำไรสุทธิ</th>
+                          <th className="right">margin รวม</th>
+                          <th className="right">MARGIN %</th>
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {volumeRows.map((tier, index) => (
+                          <tr key={`${tier.qty}-${index}`}>
+                            <td>
+                              <input
+                                value={tier.qty}
+                                onChange={(event) =>
+                                  setVolumeTier(index, "qty", event.target.value)
+                                }
+                                type="text"
+                              />
+                            </td>
+                            <td className="right strong">
+                              <input
+                                className="center"
+                                min={0}
+                                step={1}
+                                value={tier.quantity}
+                                onChange={(event) =>
+                                  setVolumeTier(
+                                    index,
+                                    "quantity",
+                                    Number(event.target.value) || 0,
+                                  )
+                                }
+                                type="number"
+                              />
+                            </td>
+                            <td>
+                              <input
+                                className="center"
+                                min={0}
+                                max={100}
+                                step={0.1}
+                                value={tier.discount}
+                                onChange={(event) =>
+                                  setVolumeTier(
+                                    index,
+                                    "discount",
+                                    Number(event.target.value) || 0,
+                                  )
+                                }
+                                type="number"
+                              />
+                            </td>
+                            <td className="right strong">
+                              {result ? baht.format(tier.price) : "—"}
+                            </td>
+                            <td
+                              className={`right ${
+                                tier.profit >= 0 ? "positive" : "negative"
+                              }`}
+                            >
+                              {result ? baht.format(tier.profit) : "—"}
+                            </td>
+                            <td className="right strong">
+                              {result && tier.totalMargin !== null
+                                ? baht.format(tier.totalMargin)
+                                : "—"}
+                            </td>
+                            <td className="right strong">
+                              {result ? formatPercent(tier.margin) : "—"}
+                            </td>
+                            <td className="right no-export">
+                              <button
+                                type="button"
+                                className="volume-remove"
+                                onClick={() => removeVolumeTier(index)}
+                                title="ลบระดับ"
+                              >
+                                ×
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : null}
             </div>
 
             <aside className="summary-column">
@@ -1199,7 +1448,7 @@ export default function Dashboard({ user }: DashboardProps) {
               <div><span>สินค้า</span><strong>{form.productName || "-"}</strong></div>
               <div><span>หมวด</span><strong>{selectedCategory}</strong></div>
               <div><span>วันที่</span><strong>{form.projectDate}</strong></div>
-              <div><span>โหมด</span><strong>{form.mode === "SIMPLE" ? "ง่าย" : "ละเอียด"}</strong></div>
+              <div><span>โหมด</span><strong>{modeLabel(form.mode)}</strong></div>
             </div>
             <div className="print-results">
               <MetricCard label="ต้นทุนรวม" value={result ? baht.format(result.totalCost) : "—"} />
@@ -1318,7 +1567,7 @@ export default function Dashboard({ user }: DashboardProps) {
                 <article className="project-card" key={project.id}>
                   <div className="project-card-head">
                     <span className={`mode-chip ${project.mode.toLowerCase()}`}>
-                      {project.mode === "SIMPLE" ? "ง่าย" : "ละเอียด"}
+                      {modeLabel(project.mode)}
                     </span>
                     <time>{project.projectDate}</time>
                   </div>
@@ -1345,6 +1594,9 @@ export default function Dashboard({ user }: DashboardProps) {
                   </div>
                   <div className="card-actions">
                     <button onClick={() => editProject(project)}>แก้ไข</button>
+                    <button onClick={() => void shareProject(project.id)}>
+                      แชร์
+                    </button>
                     <button onClick={() => void duplicateProject(project.id)}>
                       คัดลอก
                     </button>

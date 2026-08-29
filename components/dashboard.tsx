@@ -15,7 +15,9 @@ import type {
   CategoryRecord,
   ProjectInput,
   ProjectRecord,
+  VolumeTier,
 } from "@/lib/domain/project";
+import { createDefaultVolumeTiers } from "@/lib/domain/project";
 import {
   calculatePricing,
   emptyPricingInput,
@@ -23,11 +25,6 @@ import {
 } from "@/lib/domain/pricing";
 
 type Tab = "calculator" | "projects" | "categories";
-type VolumeTier = {
-  qty: string;
-  quantity: number;
-  discount: number;
-};
 
 interface DashboardProps {
   user: {
@@ -46,8 +43,10 @@ const newProject = (): ProjectInput => ({
   categoryId: null,
   projectDate: today(),
   productName: "",
+  productImageUrl: "",
   detail: "",
   currencyCode: "CNY",
+  volumeTiers: createDefaultVolumeTiers(),
 });
 
 const baht = new Intl.NumberFormat("th-TH", {
@@ -61,18 +60,15 @@ const number = new Intl.NumberFormat("th-TH", {
   maximumFractionDigits: 4,
 });
 
+const marginPercent = new Intl.NumberFormat("th-TH", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const imageCurrency = new Intl.NumberFormat("th-TH", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
-
-const defaultVolumeTiers: VolumeTier[] = [
-  { qty: "1-10", quantity: 10, discount: 0 },
-  { qty: "11-50", quantity: 50, discount: 5 },
-  { qty: "51-200", quantity: 200, discount: 10 },
-  { qty: "201-500", quantity: 500, discount: 15 },
-  { qty: "501+", quantity: 501, discount: 20 },
-];
 
 function escapeXml(value: string) {
   return value
@@ -141,7 +137,7 @@ function wrapSvgText(value: string, maxChars: number, maxLines = 2) {
 }
 
 function formatPercent(value: number) {
-  return `${number.format(value)}%`;
+  return `${marginPercent.format(value)}%`;
 }
 
 function modeLabel(mode: ProjectInput["mode"]) {
@@ -287,7 +283,7 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
   const [restoreMode, setRestoreMode] = useState<"merge" | "replace">("replace");
   const restoreInput = useRef<HTMLInputElement>(null);
   const [volumeTiers, setVolumeTiers] =
-    useState<VolumeTier[]>(defaultVolumeTiers);
+    useState<VolumeTier[]>(createDefaultVolumeTiers);
   const appliedSharedProjectId = useRef<string | null>(null);
 
   const showToast = useCallback(
@@ -403,8 +399,13 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
     );
   };
 
+  const clearProductImage = () => {
+    setForm((current) => ({ ...current, productImageUrl: "" }));
+  };
+
   const resetForm = () => {
     setEditingId(null);
+    setVolumeTiers(createDefaultVolumeTiers());
     setForm({
       ...newProject(),
       categoryId:
@@ -427,7 +428,7 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
         editingId ? `/api/projects/${editingId}` : "/api/projects",
         {
           method: editingId ? "PATCH" : "POST",
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, volumeTiers }),
         },
       );
       setProjects((current) => {
@@ -469,6 +470,7 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
       ...input
     } = project;
     setEditingId(id);
+    setVolumeTiers(input.volumeTiers);
     setForm(input);
     setTab("calculator");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -620,37 +622,71 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
         ? advanced
         : []),
   ];
+    const detailRowGap = rows.length > 8 ? 32 : 42;
+    const reportTitleFontSize = title.length > 52 ? 30 : title.length > 34 ? 34 : 38;
+    const reportTitleMaxChars = reportTitleFontSize === 30 ? 42 : reportTitleFontSize === 34 ? 36 : 32;
+    const reportTitleLines = wrapSvgText(title, reportTitleMaxChars, 2);
+    const reportTitleLineHeight = reportTitleFontSize + 8;
+    const reportTitleY = 304;
+    const reportDetailY =
+      reportTitleY + (reportTitleLines.length - 1) * reportTitleLineHeight + 46;
+    const reportHeroY = reportDetailY + 28;
+    const reportStatsY = reportHeroY + 152;
+    const volumeSectionY = 870;
+    const volumeRowHeight = 58;
+    const volumeRowsY = volumeSectionY + 142;
+    const reportHeight =
+      volumeRowsY + volumeRows.length * volumeRowHeight + 112;
 
     const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+      <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="${reportHeight}" viewBox="0 0 1600 ${reportHeight}">
         <defs>
           <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#f7f8fb"/>
-            <stop offset="100%" stop-color="#eef2ff"/>
+            <stop offset="0%" stop-color="#f8fafc"/>
+            <stop offset="52%" stop-color="#f2f5fb"/>
+            <stop offset="100%" stop-color="#eaf0fb"/>
           </linearGradient>
           <linearGradient id="hero" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#17223b"/>
-            <stop offset="100%" stop-color="#1d315c"/>
+            <stop offset="0%" stop-color="#14213d"/>
+            <stop offset="58%" stop-color="#1c3159"/>
+            <stop offset="100%" stop-color="#244a77"/>
           </linearGradient>
+          <linearGradient id="success" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#eefaf4"/>
+            <stop offset="100%" stop-color="#ddf4e9"/>
+          </linearGradient>
+          <radialGradient id="glow">
+            <stop offset="0%" stop-color="#ff8a5c" stop-opacity="0.24"/>
+            <stop offset="100%" stop-color="#ff8a5c" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+            <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#17223b" flood-opacity="0.08"/>
+          </filter>
           <style>
-            .title { font: 700 44px 'Segoe UI', sans-serif; fill: #17223b; }
-            .subtitle { font: 500 20px 'Segoe UI', sans-serif; fill: #6d7690; }
-            .card-title { font: 600 18px 'Segoe UI', sans-serif; fill: #6d7690; }
-            .card-value { font: 800 42px 'Segoe UI', sans-serif; fill: #17223b; }
-            .small { font: 500 16px 'Segoe UI', sans-serif; fill: #6d7690; }
-            .badge { font: 700 14px 'Segoe UI', sans-serif; fill: #ff6b35; letter-spacing: 0.16em; }
-            .section { font: 700 24px 'Segoe UI', sans-serif; fill: #17223b; }
-            .label { font: 600 16px 'Segoe UI', sans-serif; fill: #6d7690; }
-            .value { font: 700 18px 'Segoe UI', sans-serif; fill: #17223b; text-anchor: end; }
+            .title { font: 700 44px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #17223b; }
+            .subtitle { font: 500 20px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #68758e; }
+            .card-title { font: 600 18px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #68758e; }
+            .card-value { font: 800 42px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #17223b; }
+            .small { font: 500 16px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #68758e; }
+            .badge { font: 800 14px 'Segoe UI', sans-serif; fill: #ff6636; letter-spacing: 0.18em; }
+            .section { font: 700 24px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #17223b; }
+            .label { font: 600 16px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #68758e; }
+            .value { font: 700 18px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #17223b; text-anchor: end; }
+            .table-head { font: 700 15px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #526078; }
+            .table-cell { font: 700 17px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #17223b; }
           </style>
         </defs>
-        <rect width="1600" height="900" rx="32" fill="url(#bg)"/>
-        <rect x="60" y="50" width="1480" height="110" rx="28" fill="#ffffff"/>
-        <rect x="88" y="78" width="54" height="54" rx="16" fill="#ff6b35"/>
+        <rect width="1600" height="${reportHeight}" rx="32" fill="url(#bg)"/>
+        <circle cx="1510" cy="50" r="260" fill="url(#glow)"/>
+        <circle cx="60" cy="${reportHeight - 40}" r="220" fill="url(#glow)" opacity="0.45"/>
+        <rect x="60" y="50" width="1480" height="110" rx="28" fill="#ffffff" filter="url(#shadow)"/>
+        <rect x="88" y="78" width="54" height="54" rx="16" fill="#ff6636"/>
+        <circle cx="132" cy="87" r="18" fill="#ffffff" opacity="0.13"/>
         <text x="115" y="113" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="34" font-weight="800" fill="#ffffff">฿</text>
         <text x="165" y="97" class="title" style="font-size:34px">Import Price Studio</text>
         <text x="165" y="127" class="subtitle" style="font-size:18px">เครื่องมือคำนวณราคานำเข้า</text>
-        <text x="1500" y="98" text-anchor="end" class="title" style="font-size:22px">รายงานรูปภาพ</text>
+        <rect x="1362" y="72" width="138" height="34" rx="17" fill="#fff1eb"/>
+        <text x="1431" y="94" text-anchor="middle" class="badge" style="font-size:12px;letter-spacing:0.08em">PRICE REPORT</text>
         <text x="1500" y="122" text-anchor="end" class="subtitle" style="font-size:15px">
           ${escapeXml(wrapSvgText(subtitle, 38, 2)[0] ?? subtitle)}
         </text>
@@ -658,44 +694,54 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
           ${escapeXml(wrapSvgText(subtitle, 38, 2)[1] ?? "")}
         </text>
 
-        <rect x="60" y="188" width="980" height="652" rx="30" fill="#ffffff"/>
+        <rect x="60" y="188" width="980" height="652" rx="30" fill="#ffffff" filter="url(#shadow)"/>
+        <rect x="60" y="188" width="12" height="652" rx="6" fill="#ff6636"/>
         <text x="96" y="250" class="badge">REPORT SUMMARY</text>
-        <text x="96" y="304" class="title" style="font-size:38px">
-          ${wrapSvgText(title, 18, 2)
-            .map((line, index) => `<tspan x="96" dy="${index === 0 ? 0 : 44}">${escapeXml(line)}</tspan>`)
+        <text x="96" y="${reportTitleY}" class="title" style="font-size:${reportTitleFontSize}px">
+          ${reportTitleLines
+            .map((line, index) => `<tspan x="96" dy="${index === 0 ? 0 : reportTitleLineHeight}">${escapeXml(line)}</tspan>`)
             .join("")}
         </text>
-        <text x="96" y="350" class="subtitle" style="font-size:15px">
+        <text x="96" y="${reportDetailY}" class="subtitle" style="font-size:15px">
           ${escapeXml(
             (form.detail || "สรุปราคาสินค้าพร้อมต้นทุนและกำไร").trim().slice(0, 96),
           )}
           ${form.detail && form.detail.trim().length > 96 ? "…" : ""}
         </text>
 
-        <rect x="96" y="378" width="908" height="120" rx="24" fill="url(#hero)"/>
-        <text x="132" y="432" class="small" style="fill:#b8c2d9">ราคาขายแนะนำ / ชิ้น</text>
-        <text x="132" y="486" style="font: 800 56px 'Segoe UI', sans-serif; fill: #ffffff;">${escapeXml(baht.format(result.sellingPricePerUnit))}</text>
-        <text x="132" y="520" class="small" style="fill:#b8c2d9">GP ${imageCurrency.format(form.gpMarginPct)}%</text>
+        <rect x="96" y="${reportHeroY}" width="908" height="120" rx="24" fill="url(#hero)"/>
+        <circle cx="944" cy="${reportHeroY + 12}" r="108" fill="#ffffff" opacity="0.04"/>
+        <circle cx="890" cy="${reportHeroY + 104}" r="74" fill="#ff8a5c" opacity="0.1"/>
+        <rect x="96" y="${reportHeroY}" width="8" height="120" rx="4" fill="#ff6636"/>
+        <text x="132" y="${reportHeroY + 47}" class="small" style="fill:#bdc8dc">ราคาขายแนะนำ / ชิ้น</text>
+        <text x="132" y="${reportHeroY + 101}" style="font: 800 56px 'Leelawadee UI', 'Segoe UI', sans-serif; fill: #ffffff;">${escapeXml(baht.format(result.sellingPricePerUnit))}</text>
+        <rect x="842" y="${reportHeroY + 36}" width="126" height="46" rx="23" fill="#ffffff" opacity="0.12"/>
+        <text x="905" y="${reportHeroY + 65}" text-anchor="middle" style="font:700 17px 'Leelawadee UI','Segoe UI',sans-serif;fill:#ffffff">GP ${imageCurrency.format(form.gpMarginPct)}%</text>
 
         ${stats
           .map((item, index) => {
             const x = 96 + (index % 2) * 446;
-            const y = 530 + Math.floor(index / 2) * 112;
+            const y = reportStatsY + Math.floor(index / 2) * 112;
+            const accent = ["#ff6636", "#3b82f6", "#17223b", "#079669"][index];
             return `
-              <rect x="${x}" y="${y}" width="418" height="94" rx="20" fill="#f8fafc" stroke="#e6e9f2"/>
-              <text x="${x + 24}" y="${y + 34}" class="card-title">${escapeXml(item.label)}</text>
-              <text x="${x + 24}" y="${y + 74}" class="card-value" style="font-size:32px">${escapeXml(item.value)}</text>
+              <rect x="${x}" y="${y}" width="418" height="94" rx="20" fill="#f8fafc" stroke="#e1e7f0"/>
+              <rect x="${x}" y="${y + 18}" width="5" height="58" rx="2.5" fill="${accent}"/>
+              <text x="${x + 26}" y="${y + 33}" class="card-title">${escapeXml(item.label)}</text>
+              <text x="${x + 26}" y="${y + 74}" class="card-value" style="font-size:31px">${escapeXml(item.value)}</text>
             `;
           })
           .join("")}
 
-        <rect x="1080" y="188" width="460" height="652" rx="30" fill="#ffffff"/>
-        <text x="1114" y="250" class="section">รายละเอียดต้นทุน</text>
+        <rect x="1080" y="188" width="460" height="652" rx="30" fill="#ffffff" filter="url(#shadow)"/>
+        <rect x="1114" y="222" width="38" height="38" rx="12" fill="#eef3fb"/>
+        <text x="1133" y="248" text-anchor="middle" style="font:800 19px 'Segoe UI',sans-serif;fill:#244a77">฿</text>
+        <text x="1168" y="250" class="section">รายละเอียดต้นทุน</text>
 
         ${rows
           .map((item, index) => {
-            const y = 292 + index * 42;
+            const y = 292 + index * detailRowGap;
             return `
+              ${index > 0 ? `<line x1="1114" y1="${y - detailRowGap / 2}" x2="1506" y2="${y - detailRowGap / 2}" stroke="#edf0f5"/>` : ""}
               <text x="1114" y="${y}" class="label">${escapeXml(
                 wrapSvgText(item.label, 34, 1)[0] ?? item.label,
               )}</text>
@@ -707,11 +753,52 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
           })
           .join("")}
 
-        <rect x="1114" y="670" width="392" height="120" rx="22" fill="#f0f9f4" stroke="#cfe8d9"/>
-        <text x="1140" y="706" class="label">ต้นทุนรวม</text>
-        <text x="1140" y="758" style="font: 800 40px 'Segoe UI', sans-serif; fill:#1c8f5a">${escapeXml(baht.format(result.totalCost))}</text>
+        <rect x="1114" y="670" width="392" height="120" rx="22" fill="url(#success)" stroke="#bde6d1"/>
+        <circle cx="1464" cy="708" r="48" fill="#079669" opacity="0.07"/>
+        <text x="1140" y="706" class="label" style="fill:#34745b">ต้นทุนรวม</text>
+        <text x="1140" y="758" style="font: 800 40px 'Leelawadee UI', 'Segoe UI', sans-serif; fill:#07865e">${escapeXml(baht.format(result.totalCost))}</text>
 
-        <text x="1114" y="834" class="small">ผลลัพธ์เพื่อประกอบการตัดสินใจ ไม่ใช่เอกสารยื่นศุลกากร</text>
+        <text x="1114" y="817" class="small" style="font-size:13px">ประมาณการเพื่อประกอบการตัดสินใจ ไม่ใช่เอกสารศุลกากร</text>
+
+        <rect x="60" y="${volumeSectionY}" width="1480" height="${reportHeight - volumeSectionY - 36}" rx="30" fill="#ffffff" filter="url(#shadow)"/>
+        <rect x="60" y="${volumeSectionY}" width="12" height="${reportHeight - volumeSectionY - 36}" rx="6" fill="#ff6636"/>
+        <text x="96" y="${volumeSectionY + 52}" class="badge">VOLUME PRICING</text>
+        <text x="96" y="${volumeSectionY + 86}" class="section">ราคาขั้นบันไดตามปริมาณ</text>
+        <rect x="1398" y="${volumeSectionY + 42}" width="106" height="36" rx="18" fill="#fff1eb"/>
+        <text x="1451" y="${volumeSectionY + 65}" text-anchor="middle" style="font:700 14px 'Leelawadee UI','Segoe UI',sans-serif;fill:#e75425">${volumeRows.length} ระดับราคา</text>
+
+        <rect x="96" y="${volumeSectionY + 106}" width="1408" height="50" rx="14" fill="#172744"/>
+        <text x="120" y="${volumeSectionY + 138}" class="table-head" style="fill:#ffffff">ช่วงจำนวน (ชิ้น)</text>
+        <text x="590" y="${volumeSectionY + 138}" text-anchor="end" class="table-head" style="fill:#ffffff">จำนวน</text>
+        <text x="694" y="${volumeSectionY + 138}" text-anchor="middle" class="table-head" style="fill:#ffffff">ลด (%)</text>
+        <text x="970" y="${volumeSectionY + 138}" text-anchor="end" class="table-head" style="fill:#ffffff">ราคาต่อหน่วย</text>
+        <text x="1170" y="${volumeSectionY + 138}" text-anchor="end" class="table-head" style="fill:#ffffff">กำไร / หน่วย</text>
+        <text x="1380" y="${volumeSectionY + 138}" text-anchor="end" class="table-head" style="fill:#ffffff">MARGIN รวม</text>
+        <text x="1450" y="${volumeSectionY + 138}" text-anchor="middle" class="table-head" style="fill:#ffffff">MARGIN %</text>
+
+        ${volumeRows
+          .map((tier, index) => {
+            const rowY = volumeRowsY + index * volumeRowHeight;
+            const textY = rowY + 36;
+            return `
+              <rect x="96" y="${rowY}" width="1408" height="${volumeRowHeight}" fill="${index % 2 === 0 ? "#ffffff" : "#f8fafc"}"/>
+              <line x1="96" y1="${rowY + volumeRowHeight}" x2="1504" y2="${rowY + volumeRowHeight}" stroke="#e5eaf1"/>
+              <text x="120" y="${textY}" class="table-cell">${escapeXml(tier.qty)}</text>
+              <text x="590" y="${textY}" text-anchor="end" class="table-cell">${escapeXml(number.format(tier.quantity))}</text>
+              <rect x="656" y="${rowY + 14}" width="76" height="30" rx="15" fill="${tier.discount > 0 ? "#fff1eb" : "#eef2f7"}"/>
+              <text x="694" y="${rowY + 35}" text-anchor="middle" style="font:700 15px 'Segoe UI',sans-serif;fill:${tier.discount > 0 ? "#e75425" : "#68758e"}">${escapeXml(number.format(tier.discount))}%</text>
+              <text x="970" y="${textY}" text-anchor="end" class="table-cell">${escapeXml(baht.format(tier.price))}</text>
+              <text x="1170" y="${textY}" text-anchor="end" class="table-cell" style="fill:${tier.profit >= 0 ? "#079669" : "#dc3545"}">${escapeXml(baht.format(tier.profit))}</text>
+              <text x="1380" y="${textY}" text-anchor="end" class="table-cell">${escapeXml(tier.totalMargin === null ? "—" : baht.format(tier.totalMargin))}</text>
+              <rect x="1412" y="${rowY + 14}" width="76" height="30" rx="15" fill="${tier.margin >= 20 ? "#e5f7ef" : "#eef2f7"}"/>
+              <text x="1450" y="${rowY + 35}" text-anchor="middle" style="font:700 14px 'Segoe UI',sans-serif;fill:${tier.margin >= 20 ? "#07865e" : "#526078"}">${escapeXml(formatPercent(tier.margin))}</text>
+            `;
+          })
+          .join("")}
+
+        <line x1="96" y1="${reportHeight - 78}" x2="1504" y2="${reportHeight - 78}" stroke="#e5eaf1"/>
+        <text x="96" y="${reportHeight - 46}" class="small" style="font-size:14px">ราคาแต่ละระดับคำนวณจากราคาขายแนะนำ หักส่วนลดตามปริมาณ</text>
+        <text x="1504" y="${reportHeight - 46}" text-anchor="end" class="small" style="font-size:14px">Import Price Studio • ${escapeXml(form.projectDate)}</text>
       </svg>
     `.trim();
 
@@ -730,7 +817,7 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
 
       const canvas = document.createElement("canvas");
       canvas.width = 1600;
-      canvas.height = 900;
+      canvas.height = reportHeight;
       const context = canvas.getContext("2d");
       if (!context) {
         throw new Error("ไม่สามารถเข้าถึง canvas ได้");
@@ -967,6 +1054,19 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                 <h3>แชร์ลิงก์โปรเจกต์นี้</h3>
                 <p>กดเพื่อคัดลอกลิงก์เปิดดูโปรเจกต์นี้โดยตรง</p>
               </div>
+              <div className="share-preview">
+                {form.productImageUrl ? (
+                  <img
+                    alt={form.productName || "รูปภาพสินค้า"}
+                    src={form.productImageUrl}
+                  />
+                ) : (
+                  <div className="share-preview-empty">
+                    <strong>ยังไม่มีรูปสินค้า</strong>
+                    <span>ใส่ลิงก์รูปภาพในข้อมูลสินค้า</span>
+                  </div>
+                )}
+              </div>
               <button
                 className="button ghost share-button"
                 disabled={!editingId}
@@ -1055,6 +1155,34 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                       }))
                     }
                   />
+                </label>
+                <label className="field">
+                  <span className="field-label">รูปภาพสินค้า</span>
+                  <input
+                    inputMode="url"
+                    maxLength={4000}
+                    placeholder="วางลิงก์รูปภาพสินค้า เช่น https://..."
+                    value={form.productImageUrl}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        productImageUrl: event.target.value,
+                      }))
+                    }
+                  />
+                  <span className="field-hint">
+                    ใส่ลิงก์รูปที่เปิดจากเบราว์เซอร์ได้
+                  </span>
+                  <div className="image-actions">
+                    <button
+                      className="button ghost small-button"
+                      disabled={!form.productImageUrl}
+                      onClick={clearProductImage}
+                      type="button"
+                    >
+                      ล้างรูป
+                    </button>
+                  </div>
                 </label>
               </section>
 
@@ -1241,6 +1369,16 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                   </div>
                   <div className="volume-table-wrap">
                     <table className="volume-table">
+                      <colgroup>
+                        <col className="volume-col-range" />
+                        <col className="volume-col-quantity" />
+                        <col className="volume-col-discount" />
+                        <col className="volume-col-unit" />
+                        <col className="volume-col-profit" />
+                        <col className="volume-col-total" />
+                        <col className="volume-col-margin" />
+                        <col className="volume-col-action" />
+                      </colgroup>
                       <thead>
                         <tr>
                           <th>ช่วงจำนวน (ชิ้น)</th>
@@ -1267,15 +1405,19 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                             </td>
                             <td className="right strong">
                               <input
-                                className="center"
+                                className="center volume-number-input"
                                 min={0}
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 step={1}
                                 value={tier.quantity}
                                 onChange={(event) =>
                                   setVolumeTier(
                                     index,
                                     "quantity",
-                                    Number(event.target.value) || 0,
+                                    event.target.value === ""
+                                      ? ""
+                                      : Number(event.target.value),
                                   )
                                 }
                                 type="number"
@@ -1283,16 +1425,20 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                             </td>
                             <td>
                               <input
-                                className="center"
+                                className="center volume-number-input"
                                 min={0}
                                 max={100}
+                                inputMode="decimal"
+                                pattern="[0-9]*[.,]?[0-9]*"
                                 step={0.1}
                                 value={tier.discount}
                                 onChange={(event) =>
                                   setVolumeTier(
                                     index,
                                     "discount",
-                                    Number(event.target.value) || 0,
+                                    event.target.value === ""
+                                      ? ""
+                                      : Number(event.target.value),
                                   )
                                 }
                                 type="number"
@@ -1439,29 +1585,119 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
           </div>
 
           <section id="print-report" className="print-report">
-            <header>
-              <p>IMPORT PRICE STUDIO</p>
-              <h1>สรุปราคาสินค้านำเข้า</h1>
-              <span>สูตรเวอร์ชัน {result?.formulaVersion ?? 1}</span>
+            <header className="print-report-header">
+              <div className="print-brand">
+                <span className="print-brand-mark">฿</span>
+                <div>
+                  <strong>Import Price Studio</strong>
+                  <small>เครื่องมือคำนวณราคานำเข้า</small>
+                </div>
+              </div>
+              <div className="print-header-meta">
+                <span>PRICE REPORT</span>
+                <small>
+                  {selectedCategory || "ไม่ระบุหมวด"} • {modeLabel(form.mode)} • {form.projectDate}
+                </small>
+              </div>
             </header>
-            <div className="print-meta">
-              <div><span>สินค้า</span><strong>{form.productName || "-"}</strong></div>
-              <div><span>หมวด</span><strong>{selectedCategory}</strong></div>
-              <div><span>วันที่</span><strong>{form.projectDate}</strong></div>
-              <div><span>โหมด</span><strong>{modeLabel(form.mode)}</strong></div>
+
+            <div className="print-overview">
+              <section className="print-summary-panel">
+                <p className="print-eyebrow">REPORT SUMMARY</p>
+                <div className="print-title-row">
+                  <div>
+                    <h1>{form.productName || "สรุปราคาสินค้านำเข้า"}</h1>
+                    <p>{form.detail || "สรุปราคาสินค้าพร้อมต้นทุนและกำไร"}</p>
+                  </div>
+                  {form.productImageUrl ? (
+                    <img
+                      className="print-product-thumb"
+                      alt={form.productName || "รูปภาพสินค้า"}
+                      src={form.productImageUrl}
+                    />
+                  ) : null}
+                </div>
+
+                <div className="print-price-hero">
+                  <span>ราคาขายแนะนำ / ชิ้น</span>
+                  <strong>{result ? baht.format(result.sellingPricePerUnit) : "—"}</strong>
+                  <b>GP {imageCurrency.format(form.gpMarginPct)}%</b>
+                </div>
+
+                <div className="print-stat-grid">
+                  <div className="orange"><span>ต้นทุนรวม</span><strong>{result ? baht.format(result.totalCost) : "—"}</strong></div>
+                  <div className="blue"><span>ต้นทุน / ชิ้น</span><strong>{result ? baht.format(result.costPerUnit) : "—"}</strong></div>
+                  <div className="navy"><span>ราคาขายแนะนำ</span><strong>{result ? baht.format(result.sellingPricePerUnit) : "—"}</strong></div>
+                  <div className="green"><span>กำไรรวม</span><strong>{result ? baht.format(result.totalProfit) : "—"}</strong></div>
+                </div>
+              </section>
+
+              <aside className="print-cost-panel">
+                <h2><span>฿</span>รายละเอียดต้นทุน</h2>
+                <dl className="print-cost-list">
+                  <div><dt>ราคา EXW / ชิ้น</dt><dd>{imageCurrency.format(form.unitForeignPrice)} {form.currencyCode}</dd></div>
+                  <div><dt>อัตราแลกเปลี่ยน</dt><dd>{imageCurrency.format(form.exchangeRate)} บาท</dd></div>
+                  <div><dt>จำนวน</dt><dd>{imageCurrency.format(form.quantity)} ชิ้น</dd></div>
+                  <div><dt>GP Margin</dt><dd>{imageCurrency.format(form.gpMarginPct)}%</dd></div>
+                  <div><dt>ค่าขนส่งต่างประเทศ /EA</dt><dd>{result ? baht.format(result.internationalFreightPerUnit) : "—"}</dd></div>
+                  <div><dt>แพ็กและขนส่งในประเทศ /EA</dt><dd>{result ? baht.format(result.domesticPackingPerUnit) : "—"}</dd></div>
+                  <div><dt>ค่าขนส่งต่างประเทศรวม</dt><dd>{result ? baht.format(result.internationalFreightCost) : "—"}</dd></div>
+                  <div><dt>แพ็กและขนส่งในประเทศรวม</dt><dd>{result ? baht.format(result.domesticPackingCost) : "—"}</dd></div>
+                  {form.mode === "ADVANCED" ? (
+                    <>
+                      <div><dt>มูลค่า CIF</dt><dd>{result ? baht.format(result.cifValue) : "—"}</dd></div>
+                      <div><dt>อากรขาเข้า</dt><dd>{result ? baht.format(result.importDuty) : "—"}</dd></div>
+                      <div><dt>VAT นำเข้า</dt><dd>{result ? baht.format(result.importVat) : "—"}</dd></div>
+                    </>
+                  ) : null}
+                </dl>
+                <div className="print-total-cost">
+                  <span>ต้นทุนรวม</span>
+                  <strong>{result ? baht.format(result.totalCost) : "—"}</strong>
+                </div>
+                <p>ประมาณการเพื่อประกอบการตัดสินใจ ไม่ใช่เอกสารศุลกากร</p>
+              </aside>
             </div>
-            <div className="print-results">
-              <MetricCard label="ต้นทุนรวม" value={result ? baht.format(result.totalCost) : "—"} />
-              <MetricCard label="ต้นทุน / ชิ้น" value={result ? baht.format(result.costPerUnit) : "—"} />
-              <MetricCard label="ราคาขายแนะนำ" value={result ? baht.format(result.sellingPricePerUnit) : "—"} tone="accent" />
-              <MetricCard label="กำไรรวม" value={result ? baht.format(result.totalProfit) : "—"} tone="profit" />
-              <MetricCard label="ค่าขนส่งต่างประเทศ /EA" value={result ? baht.format(result.internationalFreightPerUnit) : "—"} />
-              <MetricCard label="แพ็กและขนส่งในประเทศ /EA" value={result ? baht.format(result.domesticPackingPerUnit) : "—"} />
-              <MetricCard label="ค่าขนส่งต่างประเทศรวม" value={result ? baht.format(result.internationalFreightCost) : "—"} />
-              <MetricCard label="แพ็กและขนส่งในประเทศรวม" value={result ? baht.format(result.domesticPackingCost) : "—"} />
-            </div>
-            <p>{form.detail}</p>
-            <footer>รายงานนี้เป็นการประมาณการเพื่อประกอบการตัดสินใจ</footer>
+
+            <section className="print-volume-panel">
+              <div className="print-volume-head">
+                <div>
+                  <p className="print-eyebrow">VOLUME PRICING</p>
+                  <h2>ราคาขั้นบันไดตามปริมาณ</h2>
+                </div>
+                <span>{volumeRows.length} ระดับราคา</span>
+              </div>
+              <table className="print-volume-table">
+                <thead>
+                  <tr>
+                    <th>ช่วงจำนวน (ชิ้น)</th>
+                    <th>จำนวน</th>
+                    <th>ลด (%)</th>
+                    <th>ราคาต่อหน่วย</th>
+                    <th>กำไร / หน่วย</th>
+                    <th>MARGIN รวม</th>
+                    <th>MARGIN %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {volumeRows.map((tier, index) => (
+                    <tr key={`print-${tier.qty}-${index}`}>
+                      <td>{tier.qty}</td>
+                      <td>{number.format(tier.quantity)}</td>
+                      <td><span className={tier.discount > 0 ? "discount" : "neutral"}>{number.format(tier.discount)}%</span></td>
+                      <td>{baht.format(tier.price)}</td>
+                      <td className={tier.profit >= 0 ? "profit" : "loss"}>{baht.format(tier.profit)}</td>
+                      <td>{tier.totalMargin === null ? "—" : baht.format(tier.totalMargin)}</td>
+                      <td><span className={tier.margin >= 20 ? "healthy" : "neutral"}>{formatPercent(tier.margin)}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <footer>
+                <span>ราคาแต่ละระดับคำนวณจากราคาขายแนะนำ หักส่วนลดตามปริมาณ</span>
+                <span>Import Price Studio • {form.projectDate}</span>
+              </footer>
+            </section>
           </section>
         </div>
       ) : null}
@@ -1506,15 +1742,15 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                 </option>
               ))}
             </select>
-            <select
-              aria-label="กรองโหมดคำนวณ"
-              value={filterMode}
-              onChange={(event) => setFilterMode(event.target.value)}
-            >
-              <option value="">ทุกโหมด</option>
-              <option value="SIMPLE">โหมดง่าย</option>
-              <option value="ADVANCED">โหมดละเอียด</option>
-            </select>
+              <select
+                aria-label="กรองโหมดคำนวณ"
+                value={filterMode}
+                onChange={(event) => setFilterMode(event.target.value)}
+              >
+                <option value="">ทุกโหมด</option>
+                <option value="SIMPLE">โหมดง่าย</option>
+                <option value="ADVANCED">โหมดละเอียด</option>
+              </select>
           </div>
 
           <div className="backup-bar">
@@ -1571,6 +1807,14 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                     </span>
                     <time>{project.projectDate}</time>
                   </div>
+                  {project.productImageUrl ? (
+                    <div className="project-card-image">
+                      <img
+                        alt={project.productName || "รูปภาพสินค้า"}
+                        src={project.productImageUrl}
+                      />
+                    </div>
+                  ) : null}
                   <h2>{project.productName}</h2>
                   <p className="category-label">
                     {project.category?.name ?? "ไม่ระบุหมวด"}

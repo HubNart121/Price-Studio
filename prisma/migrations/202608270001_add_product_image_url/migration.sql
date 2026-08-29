@@ -1,0 +1,2 @@
+ALTER TABLE "Project"
+ADD COLUMN "productImageUrl" TEXT NOT NULL DEFAULT '';

@@ -47,6 +47,8 @@ model Project {
   mode                     PricingMode
   projectDate              DateTime    @db.Date
   productName              String
+  productImageUrl          String      @default("")
+  volumeTiers              Json?
   detail                   String      @default("")
   currencyCode             String      @default("CNY")
   unitForeignPrice         Decimal     @db.Decimal(18, 4)

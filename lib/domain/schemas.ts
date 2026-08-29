@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createDefaultVolumeTiers } from "./project";
 
 const nonNegative = z.coerce.number().finite().min(0);
 
@@ -9,6 +10,7 @@ export const projectInputSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "วันที่ไม่ถูกต้อง"),
     productName: z.string().trim().min(1, "กรุณาระบุชื่อสินค้า").max(200),
+    productImageUrl: z.string().trim().max(4000).default(""),
     detail: z.string().trim().max(2000).optional().default(""),
     currencyCode: z.string().trim().min(3).max(3).default("CNY"),
     mode: z.enum(["SIMPLE", "ADVANCED", "VOLUME"]),
@@ -27,6 +29,17 @@ export const projectInputSchema = z
     vatRatePct: nonNegative,
     includeVatInCost: z.boolean(),
     gpMarginPct: z.coerce.number().finite().min(0).lt(100),
+    volumeTiers: z
+      .array(
+        z.object({
+          qty: z.string().trim().min(1).max(100),
+          quantity: nonNegative,
+          discount: z.coerce.number().finite().min(0).max(100),
+        }),
+      )
+      .min(1)
+      .max(100)
+      .default(createDefaultVolumeTiers()),
   })
   .strict();
 

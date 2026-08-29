@@ -1,5 +1,9 @@
 import type { Prisma } from "@prisma/client";
-import type { ProjectRecord } from "../../domain/project";
+import {
+  createDefaultVolumeTiers,
+  type ProjectRecord,
+  type VolumeTier,
+} from "../../domain/project";
 
 export type ProjectWithCategory = Prisma.ProjectGetPayload<{
   include: { category: { select: { id: true; name: true } } };
@@ -9,6 +13,25 @@ const round = (value: number, places = 4) => {
   const factor = 10 ** places;
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
+
+function volumeTierValue(value: unknown): VolumeTier[] {
+  if (!Array.isArray(value)) return createDefaultVolumeTiers();
+  const tiers = value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const tier = item as Record<string, unknown>;
+    if (
+      typeof tier.qty !== "string" ||
+      typeof tier.quantity !== "number" ||
+      !Number.isFinite(tier.quantity) ||
+      typeof tier.discount !== "number" ||
+      !Number.isFinite(tier.discount)
+    ) {
+      return [];
+    }
+    return [{ qty: tier.qty, quantity: tier.quantity, discount: tier.discount }];
+  });
+  return tiers.length > 0 ? tiers : createDefaultVolumeTiers();
+}
 
 export function mapProject(project: ProjectWithCategory): ProjectRecord {
   const quantity = Number(project.quantity);
@@ -30,6 +53,7 @@ export function mapProject(project: ProjectWithCategory): ProjectRecord {
     category: project.category,
     projectDate: project.projectDate.toISOString().slice(0, 10),
     productName: project.productName,
+    productImageUrl: project.productImageUrl,
     detail: project.detail,
     currencyCode: project.currencyCode,
     mode: project.mode,
@@ -48,6 +72,7 @@ export function mapProject(project: ProjectWithCategory): ProjectRecord {
     vatRatePct: Number(project.vatRatePct),
     includeVatInCost: project.includeVatInCost,
     gpMarginPct: Number(project.gpMarginPct),
+    volumeTiers: volumeTierValue(project.volumeTiers),
     goodsValue,
     internationalFreightCost: round(internationalFreightCost, 2),
     internationalFreightPerUnit: round(internationalFreightCost / quantity),

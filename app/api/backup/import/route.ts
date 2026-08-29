@@ -29,6 +29,7 @@ function pickProjectInput(raw: Record<string, unknown>): ProjectInput {
       typeof raw.categoryId === "string" ? raw.categoryId : null,
     projectDate: raw.projectDate,
     productName: raw.productName,
+    productImageUrl: raw.productImageUrl,
     detail: raw.detail,
     currencyCode: raw.currencyCode,
     mode: raw.mode,
@@ -47,6 +48,7 @@ function pickProjectInput(raw: Record<string, unknown>): ProjectInput {
     vatRatePct: raw.vatRatePct,
     includeVatInCost: raw.includeVatInCost,
     gpMarginPct: raw.gpMarginPct,
+    volumeTiers: raw.volumeTiers,
   });
 }
 

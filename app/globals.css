@@ -341,6 +341,41 @@ textarea {
   box-shadow: 0 8px 25px rgba(30, 39, 68, 0.05);
 }
 
+.share-preview {
+  width: min(100%, 280px);
+  min-height: 112px;
+  flex: none;
+  border: 1px dashed #dce4f0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f8fafc;
+  display: grid;
+  place-items: center;
+}
+
+.share-preview img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.share-preview-empty {
+  padding: 14px;
+  text-align: center;
+}
+
+.share-preview-empty strong {
+  display: block;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.share-preview-empty span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .share-strip h3 {
   margin: 2px 0 4px;
   font-size: 22px;
@@ -356,6 +391,13 @@ textarea {
 
 .share-button {
   min-width: 150px;
+}
+
+.image-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .mode-switch button {
@@ -754,14 +796,14 @@ textarea {
 
 .volume-panel {
   margin-top: 18px;
-  padding: 18px;
+  padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 16px;
   background: #f8fafc;
 }
 
 .volume-panel-head {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -769,21 +811,21 @@ textarea {
 }
 
 .volume-panel-head h3 {
-  margin: 2px 0 2px;
-  font-size: 16px;
+  margin: 1px 0 2px;
+  font-size: 15px;
   color: var(--ink);
 }
 
 .volume-panel-head p {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .volume-add {
   flex: none;
-  min-height: 38px;
-  padding: 0 12px;
+  min-height: 34px;
+  padding: 0 10px;
   font-size: 12px;
 }
 
@@ -793,15 +835,49 @@ textarea {
 
 .volume-table {
   width: 100%;
+  min-width: 940px;
   border-collapse: collapse;
+  table-layout: fixed;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
 }
 
+.volume-col-range {
+  width: 20%;
+}
+
+.volume-col-quantity {
+  width: 11%;
+}
+
+.volume-col-discount {
+  width: 10%;
+}
+
+.volume-col-unit {
+  width: 12%;
+}
+
+.volume-col-profit {
+  width: 12%;
+}
+
+.volume-col-total {
+  width: 12%;
+}
+
+.volume-col-margin {
+  width: 10%;
+}
+
+.volume-col-action {
+  width: 3%;
+}
+
 .volume-table thead th {
-  padding: 14px 12px;
+  padding: 11px 10px;
   font-size: 12px;
   font-weight: 800;
   color: #334155;
@@ -816,8 +892,8 @@ textarea {
 }
 
 .volume-table tbody td {
-  padding: 12px;
-  font-size: 13px;
+  padding: 10px 8px;
+  font-size: 12px;
   border-bottom: 1px solid #eef2f7;
   vertical-align: middle;
 }
@@ -829,16 +905,24 @@ textarea {
 .volume-table input {
   width: 100%;
   min-width: 0;
+  min-height: 46px;
   padding: 10px 12px;
   border: 1px solid #dbe4f0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #f8fafc;
   color: #0f172a;
+  font-size: 15px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  touch-action: manipulation;
 }
 
 .volume-table input.center {
   text-align: center;
+}
+
+.volume-number-input {
+  min-width: 94px;
 }
 
 .volume-table .strong {
@@ -981,6 +1065,21 @@ textarea {
   margin: 13px 0 2px;
   font-size: 20px;
   line-height: 1.35;
+}
+
+.project-card-image {
+  margin-top: 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: #f8fafc;
+}
+
+.project-card-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .category-label {
@@ -1385,12 +1484,15 @@ textarea {
 
 @media print {
   @page {
-    size: A4;
-    margin: 14mm;
+    size: A4 landscape;
+    margin: 7mm;
   }
 
+  html,
   body {
     background: white;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   body * {
@@ -1407,69 +1509,419 @@ textarea {
     display: block;
     position: absolute;
     inset: 0;
+    box-sizing: border-box;
+    padding: 5mm;
+    border-radius: 6mm;
+    background:
+      radial-gradient(circle at 96% 2%, rgba(255, 102, 54, 0.15), transparent 24%),
+      linear-gradient(135deg, #f8fafc 0%, #eef3fb 100%);
     color: #17223b;
+    font-family: "Leelawadee UI", "Segoe UI", sans-serif;
   }
 
-  .print-report header {
-    padding-bottom: 20px;
-    border-bottom: 3px solid #ff6b35;
+  .print-report-header {
+    min-height: 18mm;
+    box-sizing: border-box;
+    padding: 4mm 5mm;
+    border-radius: 5mm;
+    background: white;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
+    box-shadow: 0 3mm 7mm rgba(23, 34, 59, 0.07);
   }
 
-  .print-report header p,
-  .print-report header h1 {
-    margin: 0;
+  .print-brand {
+    display: flex;
+    align-items: center;
+    gap: 4mm;
   }
 
-  .print-report header p {
-    color: #ff6b35;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-  }
-
-  .print-report header h1 {
-    font-size: 30px;
-  }
-
-  .print-report header span {
-    color: #6d7690;
-    font-size: 10px;
-  }
-
-  .print-meta,
-  .print-results {
-    margin-top: 20px;
+  .print-brand-mark {
+    width: 11mm;
+    height: 11mm;
+    border-radius: 3.5mm;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    place-items: center;
+    background: #ff6636;
+    color: white;
+    font-size: 18pt;
+    font-weight: 800;
   }
 
-  .print-meta div {
-    padding: 12px;
-    border: 1px solid #e7e8ee;
-    border-radius: 10px;
+  .print-brand div,
+  .print-header-meta {
     display: flex;
     flex-direction: column;
   }
 
-  .print-meta span {
-    color: #6d7690;
-    font-size: 10px;
+  .print-brand strong {
+    font-size: 17pt;
+    line-height: 1.05;
   }
 
-  .print-results .metric-card {
-    box-shadow: none;
+  .print-brand small,
+  .print-header-meta small {
+    margin-top: 1mm;
+    color: #68758e;
+    font-size: 7.5pt;
+  }
+
+  .print-header-meta {
+    align-items: flex-end;
+  }
+
+  .print-header-meta > span {
+    padding: 1.5mm 4mm;
+    border-radius: 999px;
+    background: #fff1eb;
+    color: #e75425;
+    font-size: 6.5pt;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .print-overview {
+    margin-top: 5mm;
+    display: grid;
+    grid-template-columns: minmax(0, 2.15fr) minmax(0, 1fr);
+    gap: 5mm;
+    align-items: stretch;
+  }
+
+  .print-summary-panel,
+  .print-cost-panel,
+  .print-volume-panel {
+    position: relative;
+    box-sizing: border-box;
+    border-radius: 5mm;
+    background: white;
+    box-shadow: 0 3mm 7mm rgba(23, 34, 59, 0.07);
+  }
+
+  .print-summary-panel,
+  .print-volume-panel {
+    border-left: 2mm solid #ff6636;
+  }
+
+  .print-summary-panel {
+    padding: 5mm 6mm;
+  }
+
+  .print-eyebrow {
+    margin: 0;
+    color: #ff6636;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 6.5pt;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+  }
+
+  .print-title-row {
+    margin-top: 2mm;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4mm;
+  }
+
+  .print-title-row > div {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .print-title-row h1,
+  .print-title-row p {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .print-title-row h1 {
+    max-width: 100%;
+    font-size: 18pt;
+    line-height: 1.15;
+  }
+
+  .print-title-row p {
+    margin-top: 1.5mm;
+    max-height: 8mm;
+    overflow: hidden;
+    color: #68758e;
+    font-size: 7.5pt;
+    line-height: 1.4;
+  }
+
+  .print-product-thumb {
+    width: 32mm;
+    height: 20mm;
+    flex: 0 0 auto;
+    border-radius: 3mm;
+    object-fit: cover;
+  }
+
+  .print-price-hero {
+    position: relative;
+    margin-top: 4mm;
+    min-height: 22mm;
+    box-sizing: border-box;
+    padding: 4mm 6mm;
+    border-left: 1.5mm solid #ff6636;
+    border-radius: 4mm;
+    background: linear-gradient(135deg, #14213d 0%, #244a77 100%);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .print-price-hero span {
+    color: #bdc8dc;
+    font-size: 7pt;
+  }
+
+  .print-price-hero strong {
+    margin-top: 0.5mm;
+    font-size: 25pt;
+    line-height: 1;
+  }
+
+  .print-price-hero b {
+    position: absolute;
+    top: 50%;
+    right: 6mm;
+    padding: 2mm 4mm;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 8pt;
+    transform: translateY(-50%);
+  }
+
+  .print-stat-grid {
+    margin-top: 4mm;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3mm;
+  }
+
+  .print-stat-grid > div {
+    min-height: 14mm;
+    box-sizing: border-box;
+    padding: 2.5mm 4mm;
+    border: 0.25mm solid #e1e7f0;
+    border-left-width: 1.2mm;
+    border-radius: 3.5mm;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .print-stat-grid .orange { border-left-color: #ff6636; }
+  .print-stat-grid .blue { border-left-color: #3b82f6; }
+  .print-stat-grid .navy { border-left-color: #17223b; }
+  .print-stat-grid .green { border-left-color: #079669; }
+
+  .print-stat-grid span {
+    color: #68758e;
+    font-size: 7pt;
+    font-weight: 600;
+  }
+
+  .print-stat-grid strong {
+    margin-top: 0.5mm;
+    font-size: 14pt;
+    line-height: 1;
+  }
+
+  .print-cost-panel {
+    padding: 5mm 5.5mm;
+  }
+
+  .print-cost-panel h2 {
+    margin: 0 0 3mm;
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    font-size: 12pt;
+  }
+
+  .print-cost-panel h2 span {
+    width: 8mm;
+    height: 8mm;
+    border-radius: 2.5mm;
+    background: #eef3fb;
+    color: #244a77;
+    display: grid;
+    place-items: center;
+  }
+
+  .print-cost-list {
+    margin: 0;
+  }
+
+  .print-cost-list > div {
+    min-height: 5.5mm;
+    border-bottom: 0.2mm solid #edf0f5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3mm;
+    font-size: 6.7pt;
+  }
+
+  .print-cost-list dt {
+    color: #68758e;
+    font-weight: 600;
+  }
+
+  .print-cost-list dd {
+    margin: 0;
+    flex: 0 0 auto;
+    font-weight: 800;
+  }
+
+  .print-total-cost {
+    margin-top: 3mm;
+    min-height: 16mm;
+    box-sizing: border-box;
+    padding: 3mm 4mm;
+    border: 0.25mm solid #bde6d1;
+    border-radius: 3.5mm;
+    background: linear-gradient(135deg, #eefaf4, #ddf4e9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .print-total-cost span {
+    color: #34745b;
+    font-size: 7pt;
+    font-weight: 600;
+  }
+
+  .print-total-cost strong {
+    color: #07865e;
+    font-size: 18pt;
+    line-height: 1.1;
+  }
+
+  .print-cost-panel > p {
+    margin: 2.5mm 0 0;
+    color: #68758e;
+    font-size: 6pt;
+  }
+
+  .print-volume-panel {
+    margin-top: 5mm;
+    padding: 4.5mm 6mm 3mm;
+    break-inside: auto;
+  }
+
+  .print-volume-head {
+    margin-bottom: 3mm;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .print-volume-head h2 {
+    margin: 1mm 0 0;
+    font-size: 12pt;
+  }
+
+  .print-volume-head > span {
+    padding: 1.5mm 4mm;
+    border-radius: 999px;
+    background: #fff1eb;
+    color: #e75425;
+    font-size: 6.5pt;
+    font-weight: 800;
+  }
+
+  .print-volume-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    font-size: 7pt;
+  }
+
+  .print-volume-table thead {
+    display: table-header-group;
+  }
+
+  .print-volume-table th {
+    padding: 2.2mm 2.5mm;
+    background: #172744;
+    color: white;
+    font-size: 6.5pt;
+    text-align: right;
+  }
+
+  .print-volume-table th:first-child {
+    width: 23%;
+    border-radius: 2.5mm 0 0 2.5mm;
+    text-align: left;
+  }
+
+  .print-volume-table th:last-child {
+    border-radius: 0 2.5mm 2.5mm 0;
+  }
+
+  .print-volume-table td {
+    padding: 2mm 2.5mm;
+    border-bottom: 0.2mm solid #e5eaf1;
+    text-align: right;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .print-volume-table td:first-child {
+    text-align: left;
+  }
+
+  .print-volume-table tbody tr:nth-child(even) {
+    background: #f8fafc;
+  }
+
+  .print-volume-table tbody tr {
     break-inside: avoid;
   }
 
-  .print-report footer {
-    margin-top: 36px;
-    padding-top: 12px;
-    border-top: 1px solid #e7e8ee;
-    color: #6d7690;
-    font-size: 10px;
+  .print-volume-table .profit { color: #079669; }
+  .print-volume-table .loss { color: #dc3545; }
+
+  .print-volume-table td > span {
+    min-width: 14mm;
+    padding: 1mm 2mm;
+    border-radius: 999px;
+    display: inline-block;
+    text-align: center;
+  }
+
+  .print-volume-table .discount {
+    background: #fff1eb;
+    color: #e75425;
+  }
+
+  .print-volume-table .healthy {
+    background: #e5f7ef;
+    color: #07865e;
+  }
+
+  .print-volume-table .neutral {
+    background: #eef2f7;
+    color: #526078;
+  }
+
+  .print-volume-panel footer {
+    margin-top: 3mm;
+    padding-top: 2.5mm;
+    border-top: 0.2mm solid #e5eaf1;
+    color: #68758e;
+    display: flex;
+    justify-content: space-between;
+    gap: 5mm;
+    font-size: 6pt;
   }
 }

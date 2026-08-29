@@ -1,5 +1,10 @@
 import type { DocumentData, DocumentSnapshot } from "firebase-admin/firestore";
-import type { CategoryRecord, ProjectRecord } from "../../domain/project";
+import {
+  createDefaultVolumeTiers,
+  type CategoryRecord,
+  type ProjectRecord,
+  type VolumeTier,
+} from "../../domain/project";
 import { calculatePricing, type PricingResult } from "../../domain/pricing";
 
 const round = (value: number, places = 4) => {
@@ -17,6 +22,25 @@ function stringValue(value: unknown, fallback = "") {
 
 function boolValue(value: unknown, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function volumeTierValue(value: unknown): VolumeTier[] {
+  if (!Array.isArray(value)) return createDefaultVolumeTiers();
+  const tiers = value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const tier = item as Record<string, unknown>;
+    if (
+      typeof tier.qty !== "string" ||
+      typeof tier.quantity !== "number" ||
+      !Number.isFinite(tier.quantity) ||
+      typeof tier.discount !== "number" ||
+      !Number.isFinite(tier.discount)
+    ) {
+      return [];
+    }
+    return [{ qty: tier.qty, quantity: tier.quantity, discount: tier.discount }];
+  });
+  return tiers.length > 0 ? tiers : createDefaultVolumeTiers();
 }
 
 export function mapCategory(
@@ -107,6 +131,7 @@ export function mapProject(
     category,
     projectDate: stringValue(data.projectDate),
     productName: stringValue(data.productName),
+    productImageUrl: stringValue(data.productImageUrl),
     detail: stringValue(data.detail),
     currencyCode: stringValue(data.currencyCode, "CNY"),
     mode:
@@ -130,6 +155,7 @@ export function mapProject(
     vatRatePct: numberValue(data.vatRatePct, 7),
     includeVatInCost: boolValue(data.includeVatInCost, true),
     gpMarginPct: numberValue(data.gpMarginPct),
+    volumeTiers: volumeTierValue(data.volumeTiers),
     ...result,
     createdAt: stringValue(data.createdAt),
     updatedAt: stringValue(data.updatedAt),

@@ -14,6 +14,7 @@ run("PostgreSQL repositories", () => {
     categoryId: null,
     projectDate: "2026-07-29",
     productName: "Integration product",
+    productImageUrl: "",
     detail: "",
     currencyCode: "CNY",
     mode: "ADVANCED",
@@ -32,6 +33,7 @@ run("PostgreSQL repositories", () => {
     vatRatePct: 7,
     includeVatInCost: true,
     gpMarginPct: 20,
+    volumeTiers: [{ qty: "10-20", quantity: 20, discount: 7.5 }],
   };
 
   beforeAll(async () => {
@@ -58,6 +60,7 @@ run("PostgreSQL repositories", () => {
     });
 
     expect(project.totalCost).toBe(7244.7);
+    expect(project.volumeTiers).toEqual(input.volumeTiers);
     expect(await projectRepository.get(ownerB, project.id)).toBeNull();
     expect(await projectRepository.list(ownerB)).toHaveLength(0);
     expect(await projectRepository.delete(ownerB, project.id)).toBe(false);

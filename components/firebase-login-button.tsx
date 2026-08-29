@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
+  browserLocalPersistence,
   GoogleAuthProvider,
-  inMemoryPersistence,
   setPersistence,
   signInWithPopup,
   signOut,
@@ -27,7 +27,7 @@ export default function FirebaseLoginButton({
     const firebaseAuth = getFirebaseClientAuth(config);
 
     try {
-      await setPersistence(firebaseAuth, inMemoryPersistence);
+      await setPersistence(firebaseAuth, browserLocalPersistence);
       const result = await signInWithPopup(firebaseAuth, new GoogleAuthProvider());
       const idToken = await result.user.getIdToken();
       const response = await fetch("/api/auth/firebase/session", {
@@ -40,7 +40,6 @@ export default function FirebaseLoginButton({
         throw new Error(payload.error ?? "เข้าสู่ระบบไม่สำเร็จ");
       }
 
-      await signOut(firebaseAuth);
       window.location.assign(returnTo || "/");
     } catch (loginError) {
       await signOut(firebaseAuth).catch(() => undefined);

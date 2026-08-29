@@ -61,5 +61,11 @@ export default async function HomePage({
     );
   }
 
-  return <Dashboard user={user} initialProjectId={initialProjectId} />;
+  return (
+    <Dashboard
+      user={user}
+      initialProjectId={initialProjectId}
+      firebaseConfig={firebaseConfig}
+    />
+  );
 }

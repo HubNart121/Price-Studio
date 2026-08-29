@@ -10,7 +10,14 @@ import {
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
+import { signOut as firebaseSignOut } from "firebase/auth";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { logout } from "@/app/actions";
+import {
+  getFirebaseClientAuth,
+  getFirebaseClientStorage,
+} from "@/lib/firebase/client";
+import type { FirebaseWebConfig } from "@/lib/firebase/web-config";
 import type {
   CategoryRecord,
   ProjectInput,
@@ -34,6 +41,7 @@ interface DashboardProps {
     image: string | null;
   };
   initialProjectId?: string | null;
+  firebaseConfig: FirebaseWebConfig | null;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -138,6 +146,15 @@ function wrapSvgText(value: string, maxChars: number, maxLines = 2) {
 
 function formatPercent(value: number) {
   return `${marginPercent.format(value)}%`;
+}
+
+function readImagePreview(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("อ่านไฟล์รูปภาพไม่สำเร็จ"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function modeLabel(mode: ProjectInput["mode"]) {
@@ -258,7 +275,11 @@ function Toast({
   );
 }
 
-export default function Dashboard({ user, initialProjectId }: DashboardProps) {
+export default function Dashboard({
+  user,
+  initialProjectId,
+  firebaseConfig,
+}: DashboardProps) {
   const searchParams = useSearchParams();
   const urlProjectId = searchParams.get("projectId");
   const activeSharedProjectId = urlProjectId || initialProjectId || null;
@@ -282,6 +303,10 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
   );
   const [restoreMode, setRestoreMode] = useState<"merge" | "replace">("replace");
   const restoreInput = useRef<HTMLInputElement>(null);
+  const productImageInput = useRef<HTMLInputElement>(null);
+  const imageUploadVersion = useRef(0);
+  const [productImagePreview, setProductImagePreview] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [volumeTiers, setVolumeTiers] =
     useState<VolumeTier[]>(createDefaultVolumeTiers);
   const appliedSharedProjectId = useRef<string | null>(null);
@@ -333,6 +358,7 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
       return null;
     }
   }, [form]);
+  const displayedProductImage = productImagePreview || form.productImageUrl;
 
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -399,12 +425,97 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
     );
   };
 
+  const uploadProductImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const image = input.files?.[0];
+    input.value = "";
+    if (!image) return;
+
+    if (
+      !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
+        image.type,
+      )
+    ) {
+      showToast("รองรับเฉพาะไฟล์ JPG, PNG, WebP และ GIF", "error");
+      return;
+    }
+    if (image.size > 5 * 1024 * 1024) {
+      showToast("ไฟล์รูปภาพต้องมีขนาดไม่เกิน 5 MB", "error");
+      return;
+    }
+
+    const uploadVersion = ++imageUploadVersion.current;
+    setUploadingImage(true);
+    try {
+      setProductImagePreview(await readImagePreview(image));
+      if (!firebaseConfig?.storageBucket) {
+        throw new Error("ยังไม่ได้ตั้งค่า Firebase Storage");
+      }
+
+      const auth = getFirebaseClientAuth(firebaseConfig);
+      await auth.authStateReady();
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        throw new Error("กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่อีกครั้ง");
+      }
+
+      const extensions: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+      };
+      const imageId = crypto.randomUUID();
+      const imageRef = ref(
+        getFirebaseClientStorage(firebaseConfig),
+        `users/${firebaseUser.uid}/product-images/${imageId}.${extensions[image.type]}`,
+      );
+      await uploadBytes(imageRef, image, {
+        contentType: image.type,
+        cacheControl: "public,max-age=31536000,immutable",
+      });
+      const imageUrl = await getDownloadURL(imageRef);
+
+      if (imageUploadVersion.current !== uploadVersion) return;
+      setForm((current) => ({ ...current, productImageUrl: imageUrl }));
+      setProductImagePreview("");
+      showToast("อัปโหลดรูปภาพเรียบร้อย");
+    } catch (error) {
+      if (imageUploadVersion.current !== uploadVersion) return;
+      setProductImagePreview("");
+      showToast(
+        error instanceof Error ? error.message : "อัปโหลดรูปภาพไม่สำเร็จ",
+        "error",
+      );
+    } finally {
+      if (imageUploadVersion.current === uploadVersion) {
+        setUploadingImage(false);
+      }
+    }
+  };
+
   const clearProductImage = () => {
+    imageUploadVersion.current += 1;
+    setUploadingImage(false);
+    setProductImagePreview("");
+    if (productImageInput.current) productImageInput.current.value = "";
     setForm((current) => ({ ...current, productImageUrl: "" }));
+  };
+
+  const logoutUser = async () => {
+    if (!firebaseConfig) return;
+
+    try {
+      await firebaseSignOut(getFirebaseClientAuth(firebaseConfig));
+      await fetch("/api/auth/firebase/session", { method: "DELETE" });
+    } finally {
+      window.location.assign("/");
+    }
   };
 
   const resetForm = () => {
     setEditingId(null);
+    setProductImagePreview("");
     setVolumeTiers(createDefaultVolumeTiers());
     setForm({
       ...newProject(),
@@ -420,6 +531,10 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
     }
     if (!result) {
       showToast("กรุณาตรวจจำนวน อัตราแลกเปลี่ยน และ GP Margin", "error");
+      return;
+    }
+    if (uploadingImage) {
+      showToast("กรุณารอให้อัปโหลดรูปภาพเสร็จก่อน", "error");
       return;
     }
     setSaving(true);
@@ -470,6 +585,7 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
       ...input
     } = project;
     setEditingId(id);
+    setProductImagePreview("");
     setVolumeTiers(input.volumeTiers);
     setForm(input);
     setTab("calculator");
@@ -974,11 +1090,22 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
             <strong>{user.name ?? "Nart"}</strong>
             <small>{user.email}</small>
           </span>
-          <form action={logout}>
+          {firebaseConfig ? (
+            <button
+              className="icon-button"
+              onClick={() => void logoutUser()}
+              type="button"
+              title="ออกจากระบบ"
+            >
+              ↗
+            </button>
+          ) : (
+            <form action={logout}>
             <button className="icon-button" type="submit" title="ออกจากระบบ">
               ↗
             </button>
-          </form>
+            </form>
+          )}
         </div>
       </header>
 
@@ -1055,15 +1182,15 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                 <p>กดเพื่อคัดลอกลิงก์เปิดดูโปรเจกต์นี้โดยตรง</p>
               </div>
               <div className="share-preview">
-                {form.productImageUrl ? (
+                {displayedProductImage ? (
                   <img
                     alt={form.productName || "รูปภาพสินค้า"}
-                    src={form.productImageUrl}
+                    src={displayedProductImage}
                   />
                 ) : (
                   <div className="share-preview-empty">
                     <strong>ยังไม่มีรูปสินค้า</strong>
-                    <span>ใส่ลิงก์รูปภาพในข้อมูลสินค้า</span>
+                    <span>อัปโหลดรูปภาพในข้อมูลสินค้า</span>
                   </div>
                 )}
               </div>
@@ -1156,34 +1283,58 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                     }
                   />
                 </label>
-                <label className="field">
+                <div className="field product-image-field">
                   <span className="field-label">รูปภาพสินค้า</span>
+                  <div
+                    className={`product-image-upload ${
+                      displayedProductImage ? "has-image" : ""
+                    }`}
+                  >
+                    {displayedProductImage ? (
+                      <img
+                        alt={form.productName || "ตัวอย่างรูปภาพสินค้า"}
+                        src={displayedProductImage}
+                      />
+                    ) : (
+                      <div className="product-image-empty">
+                        <span aria-hidden="true">▧</span>
+                        <strong>เลือกรูปภาพสินค้า</strong>
+                        <small>JPG, PNG, WebP หรือ GIF ขนาดไม่เกิน 5 MB</small>
+                      </div>
+                    )}
+                    {uploadingImage ? (
+                      <div className="product-image-uploading">
+                        <span /> กำลังอัปโหลดรูปภาพ…
+                      </div>
+                    ) : null}
+                  </div>
                   <input
-                    inputMode="url"
-                    maxLength={4000}
-                    placeholder="วางลิงก์รูปภาพสินค้า เช่น https://..."
-                    value={form.productImageUrl}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        productImageUrl: event.target.value,
-                      }))
-                    }
+                    ref={productImageInput}
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="product-image-input"
+                    disabled={uploadingImage}
+                    onChange={(event) => void uploadProductImage(event)}
+                    type="file"
                   />
-                  <span className="field-hint">
-                    ใส่ลิงก์รูปที่เปิดจากเบราว์เซอร์ได้
-                  </span>
                   <div className="image-actions">
                     <button
+                      className="button ghost small-button image-upload-button"
+                      disabled={uploadingImage}
+                      onClick={() => productImageInput.current?.click()}
+                      type="button"
+                    >
+                      {displayedProductImage ? "เปลี่ยนรูป" : "เลือกรูปภาพ"}
+                    </button>
+                    <button
                       className="button ghost small-button"
-                      disabled={!form.productImageUrl}
+                      disabled={!displayedProductImage || uploadingImage}
                       onClick={clearProductImage}
                       type="button"
                     >
-                      ล้างรูป
+                      ลบรูป
                     </button>
                   </div>
-                </label>
+                </div>
               </section>
 
               <section className="panel">
@@ -1559,10 +1710,16 @@ export default function Dashboard({ user, initialProjectId }: DashboardProps) {
                 <div className="summary-actions">
                   <button
                     className="button primary"
-                    disabled={saving}
+                    disabled={saving || uploadingImage}
                     onClick={saveProject}
                   >
-                    {saving ? "กำลังบันทึก…" : editingId ? "บันทึกการแก้ไข" : "บันทึกโปรเจกต์"}
+                    {uploadingImage
+                      ? "กำลังอัปโหลดรูป…"
+                      : saving
+                        ? "กำลังบันทึก…"
+                        : editingId
+                          ? "บันทึกการแก้ไข"
+                          : "บันทึกโปรเจกต์"}
                   </button>
                   <button
                     className="button ghost"
